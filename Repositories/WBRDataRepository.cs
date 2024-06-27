@@ -882,105 +882,72 @@ namespace wbrapi7_appservices.Repositories
         //public async Task<string> JIBExceltoPDF(string strFilename, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
         //
         //public string JIBExceltoPDF(string strFilename, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
-
         public string JIBExceltoPDF(Stream fileStream, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
         {
+            IWorkbook workbook = null;
 
-            try { 
-            SharepointService spSVR = new SharepointService("WBRSAAPTicket@h2obridge.com", "7JwYq*V%w5g9m#");
-
-
-            using (ExcelEngine excelEngine = new ExcelEngine())
+            try
             {
-                IApplication application = excelEngine.Excel;
-                application.DefaultVersion = ExcelVersion.Xlsx;
-                    //FileStream excelStream = new FileStream(strFilename, FileMode.Open, FileAccess.Read);
-                    //IWorkbook workbook = application.Workbooks.Open(excelStream);
-                    fileStream.Position = 0;
-                    IWorkbook workbook = application.Workbooks.Open(fileStream);
+                SharepointService spSVR = new SharepointService("WBRSAAPTicket@h2obridge.com", "7JwYq*V%w5g9m#");
+
+                using (ExcelEngine excelEngine = new ExcelEngine())
+                {
+                    IApplication application = excelEngine.Excel;
+                    application.DefaultVersion = ExcelVersion.Xlsx;
+
+                    fileStream.Position = 0; // Reset stream position
+                    workbook = application.Workbooks.Open(fileStream);
 
                     IWorksheet wsSheet1 = workbook.Worksheets[strSheetToPdf];
+                    if (wsSheet1 == null)
+                    {
+                        return "Sheet not found";
+                    }
 
-                if (wsSheet1 == null)
-                {
-                    return "Sheet not found";
+                    XlsIORenderer renderer = new XlsIORenderer();
+                    using (PdfDocument pdfDocument = renderer.ConvertToPDF(wsSheet1))
+                    {
+                        string pdfFilePath = $"c:\\temp\\jib\\{wsSheet1.Name}.pdf";
+                        using (MemoryStream pdfStream = new MemoryStream())
+                        {
+                            pdfDocument.Save(pdfStream);
+                            byte[] btByt = pdfStream.ToArray();
+
+                            string base64EncodedPDF = Convert.ToBase64String(btByt);
+                            bool rec = spapAddAttachment(
+                                strSheetToPdf + ".pdf",
+                                "tapEIBSubmitSupplierInv",
+                                intEIBSubmitSupplierInvKey,
+                                "application/pdf",
+                                base64EncodedPDF
+                            );
+
+                            pdfStream.Dispose();
+                        }
+                    }
                 }
 
-
-                XlsIORenderer renderer = new XlsIORenderer();
-
-                PdfDocument pdfDocument = renderer.ConvertToPDF(wsSheet1);
-
-                string pdfFilePath = $"c:\\temp\\jib\\{wsSheet1.Name}.pdf";
-
-
-                using (MemoryStream pdfStream = new MemoryStream())
-                {
-                    pdfDocument.Save(pdfStream);
-                    byte[] btByt = pdfStream.ToArray();
-
-                    //if (spSVR.UploadFiles("https://h20bridge.sharepoint.com/sites/AccountingGroup",
-                    //                 "Shared Documents/04. Accounts Payable/AP ticket attachments/AP000002",
-                    //                 "", "bla.pdf", btByt, false))
-
-
-                    //section to save to table --------------------------------
-
-                    string base64EncodedPDF = Convert.ToBase64String(btByt);
-                        //bool rec = await spapAddAttachment(
-                        bool rec = spapAddAttachment(
-                        strSheetToPdf + ".pdf",
-                                     "tapEIBSubmitSupplierInv",
-                                    intEIBSubmitSupplierInvKey,
-                                    "application/pdf",
-                                    base64EncodedPDF
-                                    );
-
-
-                    //end section to save to table --------------------------------
-
-
-
-
-
-                    pdfStream.Dispose();
-                }
-
-
-                    //using (FileStream pdfStream = new FileStream(pdfFilePath, FileMode.Create, FileAccess.ReadWrite))
-                    //{
-                    ////byte[] btByt = new byte[pdfStream.Length];
-                    ////pdfStream.Read(btByt, 0, (int)pdfStream.Length);
-
-                    //// Convert a string to a byte array
-                    //byte[] btByt = System.Text.Encoding.UTF8.GetBytes("Some sample text.");
-
-
-
-                    //if (spSVR.UploadFiles("https://h20bridge.sharepoint.com/sites/AccountingGroup",
-                    //                 "Shared Documents/04. Accounts Payable/AP ticket attachments/AP000002",
-                    //                 "", "bla.txt", btByt, false))
-
-                    //    pdfDocument.Save(pdfStream);
-                    //    pdfStream.Dispose();
-                    //}
-
-
-
-
-                    //fileStream.Dispose();
-
+                return "ok";
             }
-
-            return "ok";
-
-
-        }
-            catch ( Exception ex )
+            catch (OutOfMemoryException ex)
+            {
+                return "Out of memory: " + ex.Message;
+            }
+            catch (Exception ex)
             {
                 return ex.Message;
             }
+            finally
+            {
+                if (workbook != null)
+                {
+                    workbook.Close();
+                }
+            }
         }
+
+
+
 
         //public async Task<bool> spapAddAttachment(string? strFilename, string strLinkTableName, int intLinkPrimaryKey, string strDocfiletype, string content)
         public bool spapAddAttachment(string? strFilename, string strLinkTableName, int intLinkPrimaryKey, string strDocfiletype, string content)
