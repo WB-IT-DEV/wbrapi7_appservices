@@ -206,22 +206,23 @@ namespace wbrapi7_appservices.Repositories
                 catch (Exception ex)
                 {
                     strReturnMsg = $"Error: {ex.Message}";
-                   
+                    fileStream?.Dispose();
+                    return strReturnMsg;
 
 
 
                 }
               
 
-                if (strReturnMsg != "ok")
-                {
-                    if (fileStream != null)
-                    {
-                        fileStream.Dispose();
-                    }
-                   //strReturnMsg = "ok";
-                    return strReturnMsg;
-                }
+                //if (strReturnMsg != "ok")
+                //{
+                //    if (fileStream != null)
+                //    {
+                //        fileStream.Dispose();
+                //    }
+                //   //strReturnMsg = "ok";
+                //    return strReturnMsg;
+                //}
                 
 
                 try { 
@@ -317,7 +318,7 @@ namespace wbrapi7_appservices.Repositories
                         //int intbatchSize = 20; 
                         int intstartRow = 6;
 
-                        int intbatchSize = 1000;
+                        int intbatchSize = 100;
                         //int intstartRow = 76;
                         DataTable batchTable = null;
 
@@ -507,38 +508,45 @@ namespace wbrapi7_appservices.Repositories
 
                 IEnumerable<tapEIBSubmitSupplierInv> eibRecords = GettapEIBSubmitSupplierInvForPDF(jibHeaderKey);
 
-                foreach (var record in eibRecords)
+                string result = JIBExceltoPDF(fileStream, eibRecords);
+                if (result != "ok")
                 {
-                    strSheetToPdf = record.SheetToPdf;
-
-                    //string successpdf = await JIBExceltoPDF(strfilename, record.SheetToPdf, record.EIBSubmitSupplierInvKey);
-                    string[] lines = strSheetToPdf.Split(';');
-                    foreach (string strSingleSheet in lines)
-                    {
-                        
-                            //string successpdf = JIBExceltoPDF(strfilename, strSingleSheet, record.EIBSubmitSupplierInvKey);
-                        string successpdf = JIBExceltoPDF(fileStream, strSingleSheet, record.EIBSubmitSupplierInvKey);
-
-                        if (successpdf != "ok")
-                        {
-                            bool recy = spapUpdateJIBHeader(
-                   jibHeaderKey,
-                   null,            // strStatus
-                   null,            // strFilename
-                   null,            // strSharepointLoc
-                   record.SheetToPdf + " PDF NOT SAVED " + successpdf,            // strComments
-                   null,            // strResult
-                   null,            //FinishedDatetime
-                   null            // dtSendDateTime (this should be a nullable DateTime type in your method signature)
-                   );
-                        }
-
-
-                    }
-
+                    // Handle the error
+                    throw new InvalidOperationException(result);
                 }
 
-                
+                //foreach (var record in eibRecords)
+                //{
+                //    strSheetToPdf = record.SheetToPdf;
+
+
+                //    string[] lines = strSheetToPdf.Split(';');
+                //    foreach (string strSingleSheet in lines)
+                //    {
+
+
+                //        string successpdf = JIBExceltoPDF(fileStream, strSingleSheet, record.EIBSubmitSupplierInvKey);
+
+                //        if (successpdf != "ok")
+                //        {
+       //         bool recy = spapUpdateJIBHeader(
+       //jibHeaderKey,
+       //null,            // strStatus
+       //null,            // strFilename
+       //null,            // strSharepointLoc
+       //record.SheetToPdf + " PDF NOT SAVED " + successpdf,            // strComments
+       //null,            // strResult
+       //null,            //FinishedDatetime
+       //null            // dtSendDateTime (this should be a nullable DateTime type in your method signature)
+       //);
+                //        }
+
+
+                //    }
+
+                //}
+
+
                 return true;
 
             }
@@ -641,7 +649,8 @@ namespace wbrapi7_appservices.Repositories
         {
             return _context.tapEIBSubmitSupplierInv
                 .Where(a => a.PrimaryKey == JIBHeaderKey)
-                .Where(a => a.SheetToPdf != null && a.SheetToPdf.Length > 2);
+                .Where(a => a.SheetToPdf != null && a.SheetToPdf.Length > 2)
+                .Where(a => a.LinkTable == "tapJIBHeader");
             ;
         }
 
@@ -879,108 +888,173 @@ namespace wbrapi7_appservices.Repositories
 
         }
 
-        //public async Task<string> JIBExceltoPDF(string strFilename, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
-        //
-        //public string JIBExceltoPDF(string strFilename, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
 
-        public string JIBExceltoPDF(Stream fileStream, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
+        public string JIBExceltoPDF(Stream fileStream, IEnumerable<tapEIBSubmitSupplierInv> eibRecords)
         {
+            IWorkbook workbook = null;
 
-            try { 
-            SharepointService spSVR = new SharepointService("WBRSAAPTicket@h2obridge.com", "7JwYq*V%w5g9m#");
-
-
-            using (ExcelEngine excelEngine = new ExcelEngine())
+            try
             {
-                IApplication application = excelEngine.Excel;
-                application.DefaultVersion = ExcelVersion.Xlsx;
-                    //FileStream excelStream = new FileStream(strFilename, FileMode.Open, FileAccess.Read);
-                    //IWorkbook workbook = application.Workbooks.Open(excelStream);
-                    fileStream.Position = 0;
-                    IWorkbook workbook = application.Workbooks.Open(fileStream);
-
-                    IWorksheet wsSheet1 = workbook.Worksheets[strSheetToPdf];
-
-                if (wsSheet1 == null)
+                using (ExcelEngine excelEngine = new ExcelEngine())
                 {
-                    return "Sheet not found";
+                    IApplication application = excelEngine.Excel;
+                    application.DefaultVersion = ExcelVersion.Xlsx;
+
+                    fileStream.Position = 0; // Reset stream position
+                    workbook = application.Workbooks.Open(fileStream);
+
+                    XlsIORenderer renderer = new XlsIORenderer();
+
+                    foreach (var record in eibRecords)
+                    {
+                        string[] sheetNames = record.SheetToPdf.Split(';');
+                        foreach (string sheetName in sheetNames)
+                        {
+                            try
+                            {
+                               
+
+
+                                IWorksheet wsSheet1 = workbook.Worksheets[sheetName];
+                                if (wsSheet1 == null)
+                                {
+                                    LogPDFError(record, $"Sheet not found");
+                                    continue; // Continue to the next sheetName
+                                }
+
+                                using (PdfDocument pdfDocument = renderer.ConvertToPDF(wsSheet1))
+                                {
+                                    using (MemoryStream pdfStream = new MemoryStream())
+                                    {
+                                        pdfDocument.Save(pdfStream);
+                                        byte[] btByt = pdfStream.ToArray();
+
+                                        string base64EncodedPDF = Convert.ToBase64String(btByt);
+                                        bool rec = spapAddAttachment(
+                                            sheetName + ".pdf",
+                                            "tapEIBSubmitSupplierInv",
+                                            record.EIBSubmitSupplierInvKey,
+                                            "application/pdf",
+                                            base64EncodedPDF
+                                        );
+
+                                        if (!rec)
+                                        {
+                                            LogPDFError(record, $"Failed to add attachment for sheet");
+                                            continue; 
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                LogPDFError(record, $"Error processing sheet: {ex.Message}");
+                                continue; 
+                            }
+                        }
+                    }
                 }
-
-
-                XlsIORenderer renderer = new XlsIORenderer();
-
-                PdfDocument pdfDocument = renderer.ConvertToPDF(wsSheet1);
-
-                string pdfFilePath = $"c:\\temp\\jib\\{wsSheet1.Name}.pdf";
-
-
-                using (MemoryStream pdfStream = new MemoryStream())
-                {
-                    pdfDocument.Save(pdfStream);
-                    byte[] btByt = pdfStream.ToArray();
-
-                    //if (spSVR.UploadFiles("https://h20bridge.sharepoint.com/sites/AccountingGroup",
-                    //                 "Shared Documents/04. Accounts Payable/AP ticket attachments/AP000002",
-                    //                 "", "bla.pdf", btByt, false))
-
-
-                    //section to save to table --------------------------------
-
-                    string base64EncodedPDF = Convert.ToBase64String(btByt);
-                        //bool rec = await spapAddAttachment(
-                        bool rec = spapAddAttachment(
-                        strSheetToPdf + ".pdf",
-                                     "tapEIBSubmitSupplierInv",
-                                    intEIBSubmitSupplierInvKey,
-                                    "application/pdf",
-                                    base64EncodedPDF
-                                    );
-
-
-                    //end section to save to table --------------------------------
-
-
-
-
-
-                    pdfStream.Dispose();
-                }
-
-
-                    //using (FileStream pdfStream = new FileStream(pdfFilePath, FileMode.Create, FileAccess.ReadWrite))
-                    //{
-                    ////byte[] btByt = new byte[pdfStream.Length];
-                    ////pdfStream.Read(btByt, 0, (int)pdfStream.Length);
-
-                    //// Convert a string to a byte array
-                    //byte[] btByt = System.Text.Encoding.UTF8.GetBytes("Some sample text.");
-
-
-
-                    //if (spSVR.UploadFiles("https://h20bridge.sharepoint.com/sites/AccountingGroup",
-                    //                 "Shared Documents/04. Accounts Payable/AP ticket attachments/AP000002",
-                    //                 "", "bla.txt", btByt, false))
-
-                    //    pdfDocument.Save(pdfStream);
-                    //    pdfStream.Dispose();
-                    //}
-
-
-
-
-                    //fileStream.Dispose();
-
+                return "ok";
             }
-
-            return "ok";
-
-
-        }
-            catch ( Exception ex )
+            catch (OutOfMemoryException ex)
+            {
+                return "Out of memory: " + ex.Message;
+            }
+            catch (Exception ex)
             {
                 return ex.Message;
             }
+            finally
+            {
+                workbook?.Close();
+            }
         }
+
+
+        private void LogPDFError(tapEIBSubmitSupplierInv record, string errorMessage)
+        {
+            spapUpdateJIBHeader(
+                record.PrimaryKey,
+                null, // strStatus
+                null, // strFilename
+                null, // strSharepointLoc
+                record.SheetToPdf + " PDF NOT SAVED " + errorMessage, // strComments
+                null, // strResult
+                null, // FinishedDatetime
+                null  // dtSendDateTime (this should be a nullable DateTime type in your method signature)
+            );
+        }
+
+
+
+
+
+
+        public string JIBExceltoPDFprev(Stream fileStream, string strSheetToPdf, int intEIBSubmitSupplierInvKey)
+        {
+            IWorkbook workbook = null;
+
+            try
+            {
+                //SharepointService spSVR = new SharepointService("WBRSAAPTicket@h2obridge.com", "7JwYq*V%w5g9m#");
+
+                using (ExcelEngine excelEngine = new ExcelEngine())
+                {
+                    IApplication application = excelEngine.Excel;
+                    application.DefaultVersion = ExcelVersion.Xlsx;
+
+                    fileStream.Position = 0; // Reset stream position
+                    workbook = application.Workbooks.Open(fileStream);
+
+                    IWorksheet wsSheet1 = workbook.Worksheets[strSheetToPdf];
+                    if (wsSheet1 == null)
+                    {
+                        return "Sheet not found";
+                    }
+
+                    XlsIORenderer renderer = new XlsIORenderer();
+                    using (PdfDocument pdfDocument = renderer.ConvertToPDF(wsSheet1))
+                    {
+                        //string pdfFilePath = $"c:\\temp\\jib\\{wsSheet1.Name}.pdf";
+                        using (MemoryStream pdfStream = new MemoryStream())
+                        {
+                            pdfDocument.Save(pdfStream);
+                            byte[] btByt = pdfStream.ToArray();
+
+                            string base64EncodedPDF = Convert.ToBase64String(btByt);
+                            bool rec = spapAddAttachment(
+                                strSheetToPdf + ".pdf",
+                                "tapEIBSubmitSupplierInv",
+                                intEIBSubmitSupplierInvKey,
+                                "application/pdf",
+                                base64EncodedPDF
+                            );
+
+                            //pdfStream.Dispose();
+                        }
+                    }
+                }
+
+                return "ok";
+            }
+            catch (OutOfMemoryException ex)
+            {
+                return "Out of memory: " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+            finally
+            {
+                if (workbook != null)
+                {
+                    workbook.Close();
+                }
+            }
+        }
+
+
 
         //public async Task<bool> spapAddAttachment(string? strFilename, string strLinkTableName, int intLinkPrimaryKey, string strDocfiletype, string content)
         public bool spapAddAttachment(string? strFilename, string strLinkTableName, int intLinkPrimaryKey, string strDocfiletype, string content)

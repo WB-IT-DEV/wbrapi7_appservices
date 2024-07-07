@@ -27,6 +27,18 @@ namespace wbrapi7_appservices.Controllers
 
         }
 
+        [HttpGet("Version")]
+        public IActionResult Version()
+        {
+            //var dataFromRepo = _repository.apStatementImport(ticketNo);
+
+            //return Ok(dataFromRepo); lblversion
+            var dataFromRepo = new { Message = "Success", Data = "24.07.07" };
+            return Ok(dataFromRepo);
+
+
+        }
+
         [HttpGet("GetSafIncHeadStatus/")]
         public IActionResult GetSafIncHeadStatus()
         {
