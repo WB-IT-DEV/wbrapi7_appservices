@@ -32,8 +32,8 @@ namespace wbrapi7_appservices.Controllers
         {
             //var dataFromRepo = _repository.apStatementImport(ticketNo);
 
-            //return Ok(dataFromRepo);
-            var dataFromRepo = new { Message = "Success", Data = "24.06.26" };
+            //return Ok(dataFromRepo); lblversion
+            var dataFromRepo = new { Message = "Success", Data = "24.07.07" };
             return Ok(dataFromRepo);
 
 
