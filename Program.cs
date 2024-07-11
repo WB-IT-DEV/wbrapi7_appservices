@@ -16,14 +16,45 @@ builder.Services.AddDbContext<WBRDataContext>(options =>
 builder.Services.AddScoped<IWBRDataRepository, WBRDataRepository>();
 builder.Services.AddControllers();
 
+
+////old
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowWebApp",
+//        policyBuilder => policyBuilder
+//            .WithOrigins("http://localhost:3000") 
+//            .AllowAnyHeader()
+//            .AllowAnyMethod());
+//});
+////end old way
+
+//new way - read from appsettings
+
+var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebApp",
         policyBuilder => policyBuilder
-            .WithOrigins("http://localhost:3000") // Specify the origin of your front-end app
+            .WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+
+    options.AddPolicy("AllowCors",
+        policyBuilder => policyBuilder
+            .AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
+
+
+
+
+//end new way - read from appsettings
+
+
+
+
 
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
