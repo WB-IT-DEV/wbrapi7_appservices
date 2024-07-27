@@ -80,6 +80,36 @@ namespace wbrapi7_appservices.Controllers
 
         }
 
+        [HttpGet("JIBPreparePDF/{JIBHeaderKey}")]
+        public IActionResult JIBPreparePDF(int JIBHeaderKey)
+        {
+            try
+            {
+                var dataFromRepo2 = _repository.JIBPreparePDF(JIBHeaderKey);
+
+                return Ok(dataFromRepo2);
+
+                //if (dataFromRepo2.Equals("ok", StringComparison.OrdinalIgnoreCase))
+                //{
+                //    return Ok(dataFromRepo2);
+                //}
+                //else
+                //{
+
+                //    return BadRequest(dataFromRepo2);
+                //}
+
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+
+
+
+        }
+
 
     }
 }

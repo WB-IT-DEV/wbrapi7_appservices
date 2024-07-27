@@ -198,7 +198,7 @@ namespace wbrapi7_appservices.Services
                     }
 
                     if (sFolderName != "")
-                        docs = WebClient.GetFolderByServerRelativeUrl(LibaryURL + sFolderName + "/");
+                        docs = WebClient.GetFolderByServerRelativeUrl(LibaryURL + "/" + sFolderName + "/");
                     else
                         docs = WebClient.GetFolderByServerRelativeUrl(LibaryURL);
 
@@ -316,7 +316,7 @@ namespace wbrapi7_appservices.Services
                     }
 
                     if (sFolderName != "")
-                        docs = WebClient.GetFolderByServerRelativeUrl(LibaryURL + sFolderName + "/");
+                        docs = WebClient.GetFolderByServerRelativeUrl(LibaryURL + "/" +sFolderName + "/");
                     else
                         docs = WebClient.GetFolderByServerRelativeUrl(LibaryURL);
 
@@ -330,6 +330,7 @@ namespace wbrapi7_appservices.Services
                         newFile.Content = FileContent;
                         // newFile.ContentStream = New FileStream()
                         newFile.Url = sFileName;
+                        newFile.Overwrite = true;
 
                         Microsoft.SharePoint.Client.File uploadFile = docs.Files.Add(newFile);
 
