@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Syncfusion.Pdf;
 using Syncfusion.XlsIO;
 using Syncfusion.XlsIORenderer;
+using Syncfusion.Pdf.Parsing;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using System.IO;
@@ -73,10 +74,19 @@ namespace wbrapi7_appservices.Repositories
 
         public IEnumerable<vapJIBHeader> vapJIBHeaderbyKey(int intjibHeaderKey)
         {
-           return _context.vapJIBHeader.Where(a => a.JIBHeaderKey==intjibHeaderKey);
-         
+            return _context.vapJIBHeader.Where(a => a.JIBHeaderKey == intjibHeaderKey);
+
         }
-        
+
+        public IEnumerable<vapJIBPDFs> vapJIBPDFsbyKey(int intjibHeaderKey)
+        {
+
+            var files = _context.vapJIBPDFs.Where(a => a.PrimaryKey == intjibHeaderKey).ToList();
+
+
+            // return _context.vapJIBPDFs.Where(a => a.PrimaryKey == intjibHeaderKey);
+            return files;
+        }
 
 
         public int GetMaxIntegerFromColumnB(IWorksheet wsSheet)
@@ -126,13 +136,13 @@ namespace wbrapi7_appservices.Repositories
             return 1;
         }
 
-    
+
 
 
         //public async Task<int> JItest()
         //      {
         public string JIBReadFolder()
-            {
+        {
             int jibHeaderKey = 0;
             string strReturnMsg = "ok";
 
@@ -149,7 +159,7 @@ namespace wbrapi7_appservices.Repositories
 
                 //string strfilename = "c:\\temp\\jib\\EVX JIB Workbook 01.31.24b.xlsx";
                 //string strfilename = "c:\\temp\\jib\\testSDB JIB Workbook - 02.29.2024.xlsx";
-      
+
                 //SharepointService spSVR = new SharepointService("WBRSAAPTicket@h2obridge.com", "7JwYq*V%w5g9m#");
 
                 //ClientContext clientContext = spSVR.getSharepointClientContext("https://h20bridge.sharepoint.com/sites/IT");
@@ -212,7 +222,7 @@ namespace wbrapi7_appservices.Repositories
 
 
                 }
-              
+
 
                 //if (strReturnMsg != "ok")
                 //{
@@ -223,11 +233,12 @@ namespace wbrapi7_appservices.Repositories
                 //   //strReturnMsg = "ok";
                 //    return strReturnMsg;
                 //}
-                
 
-                try { 
 
-                jibHeaderKey = spapInsertJIBHeader(file.Name, "sharepoint loc");
+                try
+                {
+
+                    jibHeaderKey = spapInsertJIBHeader(file.Name, "sharepoint loc");
 
                     if (jibHeaderKey <= 0)
                     {
@@ -237,7 +248,7 @@ namespace wbrapi7_appservices.Repositories
 
 
                     //var jibHeader = vapJIBHeader().FirstOrDefault(jib => jib.JIBHeaderKey == jibHeaderKey);
-                    var jibHeader =  vapJIBHeaderbyKey(jibHeaderKey).SingleOrDefault();
+                    var jibHeader = vapJIBHeaderbyKey(jibHeaderKey).SingleOrDefault();
 
                     strSharepointLoc = vLoginSharepoint.ServerSiteUrl + "/" + vLoginSharepoint.LibaryURL + "/Archived/" + jibHeader.JIBNO;
 
@@ -246,7 +257,7 @@ namespace wbrapi7_appservices.Repositories
 
 
                     //  byte[] btByt = null;
-                    
+
 
                     //  fileStream.Position = 0;
                     //  using (MemoryStream ms = new MemoryStream())
@@ -261,12 +272,12 @@ namespace wbrapi7_appservices.Repositories
                     //jibHeader.JIBNO, strfilename, btByt, false);
 
 
-                   
+
 
                     fileStream.Position = 0;
                     IWorkbook workbook = application.Workbooks.Open(fileStream);
 
-     
+
 
 
                     //worked fronm local folder
@@ -287,7 +298,7 @@ namespace wbrapi7_appservices.Repositories
                             eibuploadSheetNames.Add(worksheet.Name);
                         }
                     }
-                    if (eibuploadSheetNames.Count==0)
+                    if (eibuploadSheetNames.Count == 0)
                     {
                         throw new InvalidOperationException("Eib Upload tab not found in " + file.Name);
 
@@ -400,12 +411,12 @@ namespace wbrapi7_appservices.Repositories
 
                     //if (!bExportPDFs(jibHeaderKey, strfilename))
                     if (!bExportPDFs(jibHeaderKey, fileStream))
-                        {
-                        };
+                    {
+                    };
 
-          
+                    string strPDFS = JIBPreparePDF(jibHeaderKey);
 
-                    
+
 
                     bool rec = spapUpdateJIBHeader(
                                     jibHeaderKey,
@@ -418,7 +429,7 @@ namespace wbrapi7_appservices.Repositories
                                     null            // dtSendDateTime 
                                     );
 
-                    
+
                 }
                 catch (Exception ex)
                 {
@@ -450,6 +461,122 @@ namespace wbrapi7_appservices.Repositories
 
 
 
+        }
+
+
+
+
+
+
+
+        public string JIBPreparePDF(int JIBHeaderKey)
+        {
+            //int jibHeaderKey = 0;
+            string strReturnMsg = "ok";
+
+            //Stream? fileStream = null;
+            //Microsoft.SharePoint.Client.File? file = null;
+            var vLoginSharepoint = vapJIBSharepoint().FirstOrDefault();
+            SharepointService? spSVR = null;
+
+
+            try
+            {
+
+                if (vLoginSharepoint == null)
+                {
+                    throw new InvalidOperationException("vapJIBSharepoint login info failed to load");
+                }
+
+                //(fileStream, string strfilename) = spSVR.getSharepointFileStream("https://h20bridge.sharepoint.com/sites/AccountingGroup", "Shared Documents/04. Accounts Payable/AP ticket attachments/AP000002", "");
+                spSVR = new SharepointService(vLoginSharepoint.UserID, vLoginSharepoint.Password);
+
+                var jibHeader = vapJIBHeaderbyKey(JIBHeaderKey).SingleOrDefault();
+
+                if (jibHeader == null)
+                {
+                    throw new InvalidOperationException("JIB header not found");
+                }
+                string filenameWithoutExtension = Path.GetFileNameWithoutExtension(jibHeader.Filename);
+
+                // Append "_INVOICES" and change the extension to ".pdf"
+                string newFilename = $"{filenameWithoutExtension}_INVOICES.pdf";
+
+
+                var jibFiles = vapJIBPDFsbyKey(JIBHeaderKey).ToList();
+                if (!jibFiles.Any())
+                {
+                    throw new InvalidOperationException("JIB PDF file(s) not found");
+                }
+
+                List<Stream> pdfStreams = new List<Stream>();
+
+
+                foreach (var jibFile in jibFiles)
+                {
+                    byte[] fileBytes = Convert.FromBase64String(jibFile.DocFileDataBase64);
+
+                    bool individualUploadSuccess = UploadIndividualFile(spSVR,
+                                                                vLoginSharepoint.ServerSiteUrl,
+                                                                vLoginSharepoint.LibaryURL + "/Archived",
+                                                                jibHeader.JIBNO,
+                                                                jibFile.DocFileName,
+                                                                fileBytes);
+                    if (!individualUploadSuccess)
+                    {
+                        throw new InvalidOperationException($"Failed to upload individual file: {jibFile.DocFileName}");
+                    }
+
+                    MemoryStream ms = new MemoryStream(fileBytes);
+                    pdfStreams.Add(ms);
+
+                }
+
+                using (PdfDocument finalDocument = new PdfDocument())
+                {
+                    PdfDocumentBase.Merge(finalDocument, pdfStreams.ToArray());
+
+                    using (MemoryStream msMergedPdf = new MemoryStream())
+                    {
+                        finalDocument.Save(msMergedPdf);
+                        msMergedPdf.Position = 0;
+
+                        byte[] mergedPdfBytes = msMergedPdf.ToArray();
+
+                        bool uploadSuccess = spSVR.UploadFiles(vLoginSharepoint.ServerSiteUrl,
+                                                               vLoginSharepoint.LibaryURL + "/Archived",
+                                                               jibHeader.JIBNO,
+                                                               newFilename,
+                                                               mergedPdfBytes);
+
+                        if (!uploadSuccess)
+                        {
+                            throw new InvalidOperationException("Failed to upload merged PDF file");
+                        }
+                    }
+                }
+
+                return jibHeader.SharepointLoc;
+            }
+            catch (Exception ex)
+            {
+                strReturnMsg = $"Error: {ex.Message}";
+                return strReturnMsg;
+            }
+        }
+
+        private bool UploadIndividualFile(SharepointService spSVR, string serverSiteUrl, string libraryUrl, string jibNO, string fileName, byte[] fileContent)
+        {
+            try
+            {
+
+                return spSVR.UploadFiles(serverSiteUrl, libraryUrl, jibNO, fileName, fileContent);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error uploading file {fileName}: {ex.Message}");
+                return false;
+            }
         }
 
 
@@ -493,7 +620,7 @@ namespace wbrapi7_appservices.Repositories
         //public bool bExportPDFs(int jibHeaderKey, string strfilename)
         public bool bExportPDFs(int jibHeaderKey, Stream fileStream)
         {
-            
+
             string strSheetToPdf = "";
             try
             {
@@ -529,16 +656,16 @@ namespace wbrapi7_appservices.Repositories
 
                 //        if (successpdf != "ok")
                 //        {
-       //         bool recy = spapUpdateJIBHeader(
-       //jibHeaderKey,
-       //null,            // strStatus
-       //null,            // strFilename
-       //null,            // strSharepointLoc
-       //record.SheetToPdf + " PDF NOT SAVED " + successpdf,            // strComments
-       //null,            // strResult
-       //null,            //FinishedDatetime
-       //null            // dtSendDateTime (this should be a nullable DateTime type in your method signature)
-       //);
+                //         bool recy = spapUpdateJIBHeader(
+                //jibHeaderKey,
+                //null,            // strStatus
+                //null,            // strFilename
+                //null,            // strSharepointLoc
+                //record.SheetToPdf + " PDF NOT SAVED " + successpdf,            // strComments
+                //null,            // strResult
+                //null,            //FinishedDatetime
+                //null            // dtSendDateTime (this should be a nullable DateTime type in your method signature)
+                //);
                 //        }
 
 
@@ -727,7 +854,7 @@ namespace wbrapi7_appservices.Repositories
                     bool isSuccess = spapInsertEIBSubmitSupplierInv(fromBody);
                     if (!isSuccess)
                     {
-                    
+
                         return false;
                     }
                 }
@@ -796,7 +923,7 @@ namespace wbrapi7_appservices.Repositories
                 //_context.Database.ExecuteSqlCommand("spapInsertIntoEIBSubmitSupplierInv " + sSQLPara, updatePara);
                 _context.Database.ExecuteSqlRaw("EXEC spapInsertEIBSubmitSupplierInv " + sSQLPara, updatePara.ToArray());
                 //resultKey = (int)ObjectLinkKey.Value;
-                breturn= true;
+                breturn = true;
 
                 return breturn;
             }
@@ -816,7 +943,7 @@ namespace wbrapi7_appservices.Repositories
             updatePara.Add(new SqlParameter("@Filename", strFilename));
             updatePara.Add(new SqlParameter("@SharepointLoc", strSharepointLoc));
             updatePara.Add(new SqlParameter("@Comments", "new"));
-           
+
 
 
             SqlParameter ObjectLinkKey = new SqlParameter();
@@ -857,8 +984,9 @@ namespace wbrapi7_appservices.Repositories
             updatePara.Add(new SqlParameter("@Result", strResult ?? (object)DBNull.Value));
             updatePara.Add(new SqlParameter("@FinishedDatetime", dtFinishedDatetime.HasValue ? (object)dtFinishedDatetime.Value : DBNull.Value));
             updatePara.Add(new SqlParameter("@SendDateTime", dtSendDateTime.HasValue ? (object)dtSendDateTime.Value : DBNull.Value));
+            updatePara.Add(new SqlParameter("@WorkdayAction", (object)DBNull.Value)); //used in api when send to wd or sandbox
 
-
+            
 
 
             //SqlParameter ObjectLinkKey = new SqlParameter();
@@ -868,7 +996,7 @@ namespace wbrapi7_appservices.Repositories
 
             //updatePara.Add(ObjectLinkKey);
 
-            sSQLPara = "@JIBHeaderKey,@Status,@Filename,@SharepointLoc,@Comments,@Result,@FinishedDatetime,@SendDateTime";
+            sSQLPara = "@JIBHeaderKey,@Status,@Filename,@SharepointLoc,@Comments,@Result,@FinishedDatetime,@SendDateTime,@WorkdayAction";
 
             try
             {
@@ -912,7 +1040,7 @@ namespace wbrapi7_appservices.Repositories
                         {
                             try
                             {
-                               
+
 
 
                                 IWorksheet wsSheet1 = workbook.Worksheets[sheetName];
@@ -941,7 +1069,7 @@ namespace wbrapi7_appservices.Repositories
                                         if (!rec)
                                         {
                                             LogPDFError(record, $"Failed to add attachment for sheet");
-                                            continue; 
+                                            continue;
                                         }
                                     }
                                 }
@@ -949,7 +1077,7 @@ namespace wbrapi7_appservices.Repositories
                             catch (Exception ex)
                             {
                                 LogPDFError(record, $"Error processing sheet: {ex.Message}");
-                                continue; 
+                                continue;
                             }
                         }
                     }
@@ -1069,7 +1197,7 @@ namespace wbrapi7_appservices.Repositories
             updatePara.Add(new SqlParameter("@DocFileDataBase64", content));
 
 
-          
+
 
             sSQLPara = "@DocFileName,@LinkTableName,@LinkPrimaryKey,@DocFileType,@DocFileDataBase64";
 

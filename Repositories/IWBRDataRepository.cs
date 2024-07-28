@@ -12,6 +12,7 @@ namespace wbrapi7_appservices.Repositories
         IEnumerable<vciSafIncHeadStatus> GetvciSafIncHeadStatus();
         IEnumerable<vapJIBSharepoint> vapJIBSharepoint();
         IEnumerable<vapJIBHeader> vapJIBHeaderbyKey(int intjibHeaderKey);
+        IEnumerable<vapJIBPDFs> vapJIBPDFsbyKey(int intjibHeaderKey);
 
 
 
@@ -26,6 +27,7 @@ namespace wbrapi7_appservices.Repositories
         //Task<int> JItest();
 
         string JIBReadFolder();
+        string JIBPreparePDF(int JIBHeaderKey);
 
 
 
