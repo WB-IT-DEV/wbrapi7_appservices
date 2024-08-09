@@ -985,8 +985,9 @@ namespace wbrapi7_appservices.Repositories
             updatePara.Add(new SqlParameter("@FinishedDatetime", dtFinishedDatetime.HasValue ? (object)dtFinishedDatetime.Value : DBNull.Value));
             updatePara.Add(new SqlParameter("@SendDateTime", dtSendDateTime.HasValue ? (object)dtSendDateTime.Value : DBNull.Value));
             updatePara.Add(new SqlParameter("@WorkdayAction", (object)DBNull.Value)); //used in api when send to wd or sandbox
+            updatePara.Add(new SqlParameter("@SendBy", (object)DBNull.Value)); //used in api when send to wd or sandbox
 
-            
+
 
 
             //SqlParameter ObjectLinkKey = new SqlParameter();
@@ -996,7 +997,7 @@ namespace wbrapi7_appservices.Repositories
 
             //updatePara.Add(ObjectLinkKey);
 
-            sSQLPara = "@JIBHeaderKey,@Status,@Filename,@SharepointLoc,@Comments,@Result,@FinishedDatetime,@SendDateTime,@WorkdayAction";
+            sSQLPara = "@JIBHeaderKey,@Status,@Filename,@SharepointLoc,@Comments,@Result,@FinishedDatetime,@SendDateTime,@WorkdayAction,@SendBy";
 
             try
             {
